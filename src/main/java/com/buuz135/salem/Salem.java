@@ -1,36 +1,34 @@
 package com.buuz135.salem;
 
 import com.buuz135.salem.command.SalemRaidCommand;
+import com.buuz135.salem.data.SalemModelProvider;
+import com.buuz135.salem.data.SalemRecipeProvider;
 import com.buuz135.salem.util.InventoryFinderUtil;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
 import com.mojang.logging.LogUtils;
 import net.minecraft.core.Holder;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.ai.attributes.Attribute;
 import net.minecraft.world.entity.ai.attributes.AttributeModifier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.CreativeModeTabs;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.Blocks;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.ModList;
-import net.neoforged.fml.ModLoader;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.fml.config.ModConfig;
-import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
-import net.neoforged.fml.loading.FMLEnvironment;
 import net.neoforged.neoforge.capabilities.RegisterCapabilitiesEvent;
 import net.neoforged.neoforge.client.gui.ConfigurationScreen;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.data.event.GatherDataEvent;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.neoforged.neoforge.registries.DeferredHolder;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -80,12 +78,13 @@ public class Salem
 
     // The constructor for the mod class is the first code that is run when your mod is loaded.
     // FML will recognize some parameter types like IEventBus or ModContainer and pass them in automatically.
-    public Salem(IEventBus modEventBus, ModContainer modContainer)
+    public Salem(IEventBus modEventBus, ModContainer modContainer, Dist dist)
     {
         SalemContent.ITEMS.register(modEventBus);
         SalemContent.DataComp.DATA_COMPONENTS.register(modEventBus);
         SalemContent.Effect.EFFECT.register(modEventBus);
         modEventBus.addListener(RegisterCapabilitiesEvent.class, this::registerCapabilities);
+        modEventBus.addListener(this::gatherServerData);
 
         CREATIVE_MODE_TABS.register(modEventBus);
 
@@ -99,7 +98,7 @@ public class Salem
         // Register our mod's ModConfigSpec so that FML can create and load the config file for us
         modContainer.registerConfig(ModConfig.Type.COMMON, Config.SPEC);
 
-        if (FMLEnvironment.dist == Dist.CLIENT){
+        if (dist.isClient()){
             modContainer.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
         }
 
@@ -140,13 +139,18 @@ public class Salem
 
 
                 @Override
-                public Multimap<Holder<Attribute>, AttributeModifier> getAttributeModifiers(SlotContext slotContext, ResourceLocation id) {
+                public Multimap<Holder<Attribute>, AttributeModifier> getAttributeModifiers(SlotContext slotContext, Identifier id) {
                     Multimap<Holder<Attribute>, AttributeModifier> modifierMultimap = LinkedHashMultimap.create();
-                    modifierMultimap.put(Attributes.MOVEMENT_SPEED, new AttributeModifier(ResourceLocation.fromNamespaceAndPath(Salem.MODID, "deathly_chargers"), 0.1 + stack.getOrDefault(SalemContent.DataComp.TIME, 0L) * 0.1D, AttributeModifier.Operation.ADD_MULTIPLIED_BASE));
+                    modifierMultimap.put(Attributes.MOVEMENT_SPEED, new AttributeModifier(Identifier.fromNamespaceAndPath(Salem.MODID, "deathly_chargers"), 0.1 + stack.getOrDefault(SalemContent.DataComp.TIME, 0L) * 0.1D, AttributeModifier.Operation.ADD_MULTIPLIED_BASE));
                     return modifierMultimap;
                 }
             }, SalemContent.DEATHLY_CHARGERS_FEET);
         }
     }
 
+
+    public void gatherServerData(final GatherDataEvent.Client event) {
+        event.createProvider(SalemRecipeProvider.Runner::new);
+        event.createProvider(SalemModelProvider::new);
+    }
 }
